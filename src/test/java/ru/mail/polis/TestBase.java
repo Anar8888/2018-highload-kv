@@ -16,11 +16,12 @@
 
 package ru.mail.polis;
 
-import org.apache.http.HttpResponse;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -33,7 +34,13 @@ abstract class TestBase {
     private static final int VALUE_LENGTH = 1024;
 
     static int randomPort() {
-        return ThreadLocalRandom.current().nextInt(30000, 40000);
+        try (ServerSocket socket = new ServerSocket()) {
+            socket.setReuseAddress(true);
+            socket.bind(new InetSocketAddress(InetAddress.getByName("0.0.0.0"), 0), 1);
+            return socket.getLocalPort();
+        } catch (IOException e) {
+            throw new RuntimeException("Can't discover a free port", e);
+        }
     }
 
     @NotNull
@@ -56,9 +63,7 @@ abstract class TestBase {
     }
 
     @NotNull
-    static byte[] payloadOf(@NotNull final HttpResponse response) throws IOException {
-        final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        response.getEntity().writeTo(byteArrayOutputStream);
-        return byteArrayOutputStream.toByteArray();
+    static String endpoint(final int port) {
+        return "http://localhost:" + port;
     }
 }
