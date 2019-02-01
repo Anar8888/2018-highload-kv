@@ -42,33 +42,36 @@ public class Service extends HttpServer implements KVService {
 
     @Path("/v0/entity")
     public void entity(Request request, HttpSession httpSession) throws IOException {
+        Response response;
         String idString = request.getParameter("id=");
 
         if (idString == null || idString.isEmpty()) {
-            httpSession.sendError(Response.BAD_REQUEST, null);
+            response = new Response(Response.BAD_REQUEST, Response.EMPTY);
         } else {
             byte[] id = idString.getBytes();
             switch (request.getMethod()) {
                 case Request.METHOD_GET:
                     try {
-                        httpSession.sendResponse(Response.ok(dao.get(id)));
+                        response = Response.ok(dao.get(id));
                     } catch (NoSuchElementException e) {
-                        httpSession.sendError(Response.NOT_FOUND, null);
+                        response = new Response(Response.NOT_FOUND, Response.EMPTY);
                     }
                     break;
                 case Request.METHOD_PUT:
                     dao.upsert(id, request.getBody());
-                    httpSession.sendError(Response.CREATED, null);
+                    response = new Response(Response.CREATED, Response.EMPTY);
                     break;
                 case Request.METHOD_DELETE:
                     dao.remove(id);
-                    httpSession.sendError(Response.ACCEPTED, null);
+                    response = new Response(Response.ACCEPTED, Response.EMPTY);
                     break;
                 default:
-                    httpSession.sendError(Response.BAD_GATEWAY, null);
+                    response = new Response(Response.BAD_GATEWAY, Response.EMPTY);
                     break;
             }
         }
+
+        httpSession.sendResponse(response);
     }
 
     @Override
