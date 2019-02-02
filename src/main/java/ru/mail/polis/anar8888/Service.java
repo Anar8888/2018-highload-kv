@@ -1,7 +1,6 @@
 package ru.mail.polis.anar8888;
 
 import java.io.IOException;
-import java.util.NoSuchElementException;
 import java.util.Set;
 
 import one.nio.http.HttpServer;
@@ -33,7 +32,6 @@ public class Service extends HttpServer implements KVService {
 
     public Service(HttpServerConfig config, int port, KVDao dao, Set<String> topology) throws IOException {
         super(config);
-//        this.dao = dao;
         this.topology = topology;
 
         String myReplica = topology.stream().filter(r -> r.indexOf(":" + port) > 0).findFirst().get();
@@ -82,7 +80,7 @@ public class Service extends HttpServer implements KVService {
 
     @Override
     public void handleDefault(Request request, HttpSession session) throws IOException {
-        session.sendError(Response.NOT_FOUND, "");
+        session.sendError(Response.BAD_REQUEST, "");
     }
 
     @Override

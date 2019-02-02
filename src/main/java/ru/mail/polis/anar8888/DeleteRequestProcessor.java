@@ -14,12 +14,34 @@ public class DeleteRequestProcessor extends AbstractRequestProcessor {
     }
 
     @Override
-    public Response processDirectRequest(QueryParams queryParams, Request request) throws IOException {
-        return null;
+    public Response processDirectRequest(QueryParams queryParams, Request request) {
+        int ack = 0;
+        byte[] id = queryParams.getId();
+        try {
+            for (String replica : getReplicas(queryParams)) {
+                if (myReplica.equals(replica)) {
+                    dao.remove(id);
+                    ack++;
+                } else if (proxiedDelete(getClientForReplica(replica), id).getStatus() == 202) {
+                    ack++;
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return ack >= queryParams.getAck() ?
+                new Response(Response.ACCEPTED, Response.EMPTY) :
+                new Response(Response.ACCEPTED, Response.EMPTY);
     }
 
     @Override
-    public Response processProxiedRequest(QueryParams queryParams, Request request) throws IOException {
-        return null;
+    public Response processProxiedRequest(QueryParams queryParams, Request request) {
+        try {
+            dao.remove(queryParams.getId());
+            return new Response(Response.ACCEPTED, Response.EMPTY);
+        } catch (IOException e) {
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
     }
 }

@@ -22,7 +22,7 @@ abstract public class AbstractRequestProcessor {
     protected final Set<String> replicas;
     protected final String myReplica;
 
-    public Response process(QueryParams queryParams, Request request) throws IOException {
+    public Response process(QueryParams queryParams, Request request) {
         return request.getHeader(PROXIED_HEADER) == null
                 ? processDirectRequest(queryParams, request)
                 : processProxiedRequest(queryParams, request);
@@ -71,7 +71,7 @@ abstract public class AbstractRequestProcessor {
         return "/v0/entity?id=" + new String(key);
     }
 
-    abstract protected Response processDirectRequest(QueryParams queryParams, Request request) throws IOException;
+    abstract protected Response processDirectRequest(QueryParams queryParams, Request request);
 
-    abstract protected Response processProxiedRequest(QueryParams queryParams, Request request) throws IOException;
+    abstract protected Response processProxiedRequest(QueryParams queryParams, Request request);
 }

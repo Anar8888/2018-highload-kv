@@ -36,4 +36,6 @@ public interface KVDao extends Closeable {
             @NotNull byte[] value) throws IOException;
 
     void remove(@NotNull byte[] key) throws IOException;
+
+    long getUpdateTime(byte[] key) throws NoSuchElementException, IOException;
 }

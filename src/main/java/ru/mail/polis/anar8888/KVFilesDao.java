@@ -2,6 +2,7 @@ package ru.mail.polis.anar8888;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -26,7 +27,13 @@ public class KVFilesDao implements KVDao {
     @Override
     public byte[] get(@NotNull byte[] key) throws NoSuchElementException, IOException {
         try {
-            return Files.readAllBytes(getPathForKey(key));
+            byte[] data = Files.readAllBytes(getPathForKey(key));
+            ByteBuffer buffer = ByteBuffer.wrap(data);
+            buffer.getLong();
+
+            byte[] value = new byte[data.length - Long.BYTES];
+            buffer.get(value);
+            return value;
         } catch (NoSuchFileException e) {
             throw new NoSuchElementException();
         }
@@ -34,7 +41,10 @@ public class KVFilesDao implements KVDao {
 
     @Override
     public void upsert(@NotNull byte[] key, @NotNull byte[] value) throws IOException {
-        Files.write(getPathForKey(key), value);
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES + value.length);
+        buffer.putLong(System.currentTimeMillis());
+        buffer.put(value);
+        Files.write(getPathForKey(key), buffer.array());
     }
 
     @Override
@@ -42,6 +52,17 @@ public class KVFilesDao implements KVDao {
         try {
             Files.delete(getPathForKey(key));
         } catch (NoSuchFileException e) {
+        }
+    }
+
+    @Override
+    public long getUpdateTime(byte[] key) throws NoSuchElementException, IOException {
+        try {
+            byte[] data = Files.readAllBytes(getPathForKey(key));
+            ByteBuffer buffer = ByteBuffer.wrap(data);
+            return buffer.getLong();
+        } catch (NoSuchFileException e) {
+            throw new NoSuchElementException();
         }
     }
 

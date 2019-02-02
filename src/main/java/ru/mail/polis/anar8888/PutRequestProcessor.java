@@ -15,7 +15,7 @@ public class PutRequestProcessor extends AbstractRequestProcessor {
     }
 
     @Override
-    public Response processDirectRequest(QueryParams queryParams, Request request) throws IOException {
+    public Response processDirectRequest(QueryParams queryParams, Request request) {
         List<String> replicas = getReplicas(queryParams);
 
         byte[] id = queryParams.getId();
@@ -31,7 +31,9 @@ public class PutRequestProcessor extends AbstractRequestProcessor {
                     ack++;
                 }
             }
-        } catch (IOException e) {}
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         return ack >= queryParams.getAck()
                 ? new Response(Response.CREATED, Response.EMPTY)
@@ -39,9 +41,13 @@ public class PutRequestProcessor extends AbstractRequestProcessor {
     }
 
     @Override
-    public Response processProxiedRequest(QueryParams queryParams, Request request) throws IOException {
-        dao.upsert(queryParams.getId(), request.getBody());
-        return new Response(Response.CREATED, Response.EMPTY);
+    public Response processProxiedRequest(QueryParams queryParams, Request request) {
+        try {
+            dao.upsert(queryParams.getId(), request.getBody());
+            return new Response(Response.CREATED, Response.EMPTY);
+        } catch (IOException e) {
+            return new Response(Response.INTERNAL_ERROR, Response.EMPTY);
+        }
     }
 
 }
