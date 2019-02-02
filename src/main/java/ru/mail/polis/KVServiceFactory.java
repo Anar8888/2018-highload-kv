@@ -56,6 +56,6 @@ final class KVServiceFactory {
             throw new IllegalArgumentException("Port out of range");
         }
 
-        return Service.createDaoServiceOnPort(port, dao);
+        return Service.createDaoService(port, dao, topology);
     }
 }

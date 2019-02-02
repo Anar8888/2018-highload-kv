@@ -2,6 +2,7 @@ package ru.mail.polis.anar8888;
 
 import java.io.IOException;
 import java.util.NoSuchElementException;
+import java.util.Set;
 
 import one.nio.http.HttpServer;
 import one.nio.http.HttpServerConfig;
@@ -15,20 +16,30 @@ import ru.mail.polis.KVService;
 
 public class Service extends HttpServer implements KVService {
 
-    private KVDao dao;
+    private Set<String> topology;
 
-    public static Service createDaoServiceOnPort(int port, KVDao dao) throws IOException {
+    private final PutRequestProcessor putRequestProcessor;
+    private final DeleteRequestProcessor deleteRequestProcessor;
+    private final GetRequestProcessor getRequestProcessor;
+
+    public static Service createDaoService(int port, KVDao dao, Set<String> topology) throws IOException {
         AcceptorConfig acceptorConfig = new AcceptorConfig();
         acceptorConfig.port = port;
 
         HttpServerConfig config = new HttpServerConfig();
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
-        return new Service(config, dao);
+        return new Service(config, port, dao, topology);
     }
 
-    public Service(HttpServerConfig config, KVDao dao) throws IOException {
+    public Service(HttpServerConfig config, int port, KVDao dao, Set<String> topology) throws IOException {
         super(config);
-        this.dao = dao;
+//        this.dao = dao;
+        this.topology = topology;
+
+        String myReplica = topology.stream().filter(r -> r.indexOf(":" + port) > 0).findFirst().get();
+        putRequestProcessor = new PutRequestProcessor(dao, topology, myReplica);
+        getRequestProcessor = new GetRequestProcessor(dao, topology, myReplica);
+        deleteRequestProcessor = new DeleteRequestProcessor(dao, topology, myReplica);
     }
 
     @Path("/v0/status")
@@ -43,32 +54,27 @@ public class Service extends HttpServer implements KVService {
     @Path("/v0/entity")
     public void entity(Request request, HttpSession httpSession) throws IOException {
         Response response;
-        String idString = request.getParameter("id=");
+        final QueryParams queryParams;
+        try {
+            queryParams = QueryParams.fromRequest(request, topology.size());
+        } catch (IllegalArgumentException e) {
+            httpSession.sendError(Response.BAD_REQUEST, null);
+            return;
+        }
 
-        if (idString == null || idString.isEmpty()) {
-            response = new Response(Response.BAD_REQUEST, Response.EMPTY);
-        } else {
-            byte[] id = idString.getBytes();
-            switch (request.getMethod()) {
-                case Request.METHOD_GET:
-                    try {
-                        response = Response.ok(dao.get(id));
-                    } catch (NoSuchElementException e) {
-                        response = new Response(Response.NOT_FOUND, Response.EMPTY);
-                    }
-                    break;
-                case Request.METHOD_PUT:
-                    dao.upsert(id, request.getBody());
-                    response = new Response(Response.CREATED, Response.EMPTY);
-                    break;
-                case Request.METHOD_DELETE:
-                    dao.remove(id);
-                    response = new Response(Response.ACCEPTED, Response.EMPTY);
-                    break;
-                default:
-                    response = new Response(Response.BAD_GATEWAY, Response.EMPTY);
-                    break;
-            }
+        switch (request.getMethod()) {
+            case Request.METHOD_GET:
+                response = getRequestProcessor.process(queryParams, request);
+                break;
+            case Request.METHOD_PUT:
+                response = putRequestProcessor.process(queryParams, request);
+                break;
+            case Request.METHOD_DELETE:
+                response = deleteRequestProcessor.process(queryParams, request);
+                break;
+            default:
+                response = new Response(Response.BAD_GATEWAY, Response.EMPTY);
+                break;
         }
 
         httpSession.sendResponse(response);
