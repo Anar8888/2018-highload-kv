@@ -22,17 +22,17 @@ public class PutRequestProcessor extends AbstractRequestProcessor {
         byte[] value = request.getBody();
         int ack = 0;
 
-        try {
-            for (String replica : replicas) {
+        for (String replica : replicas) {
+            try {
                 if (myReplica.equals(replica)) {
                     dao.upsert(id, value);
                     ack++;
                 } else if (proxiedPut(getClientForReplica(replica), id, value).getStatus() == 201) {
                     ack++;
                 }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         }
 
         return ack >= queryParams.getAck()

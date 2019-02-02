@@ -17,22 +17,22 @@ public class DeleteRequestProcessor extends AbstractRequestProcessor {
     public Response processDirectRequest(QueryParams queryParams, Request request) {
         int ack = 0;
         byte[] id = queryParams.getId();
-        try {
-            for (String replica : getReplicas(queryParams)) {
+        for (String replica : getReplicas(queryParams)) {
+            try {
                 if (myReplica.equals(replica)) {
                     dao.remove(id);
                     ack++;
                 } else if (proxiedDelete(getClientForReplica(replica), id).getStatus() == 202) {
                     ack++;
                 }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         }
 
-        return ack >= queryParams.getAck() ?
-                new Response(Response.ACCEPTED, Response.EMPTY) :
-                new Response(Response.ACCEPTED, Response.EMPTY);
+        return ack >= queryParams.getAck()
+                ? new Response(Response.ACCEPTED, Response.EMPTY)
+                : new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY);
     }
 
     @Override

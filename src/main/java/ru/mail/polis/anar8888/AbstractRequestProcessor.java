@@ -64,7 +64,10 @@ abstract public class AbstractRequestProcessor {
 
     public List<String> getReplicas(QueryParams params) {
         int salt = Arrays.hashCode(params.getId());
-        return replicas.stream().sorted(Comparator.comparingInt(s -> s.hashCode() ^ salt)).collect(Collectors.toList());
+        return replicas.stream()
+                .sorted(Comparator.comparingInt(s -> s.hashCode() ^ salt))
+                .collect(Collectors.toList())
+                .subList(0, params.getFrom());
     }
 
     private String createEntityQuery(byte[] key) {

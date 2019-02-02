@@ -27,13 +27,11 @@ public class KVFilesDao implements KVDao {
     @Override
     public byte[] get(@NotNull byte[] key) throws NoSuchElementException, IOException {
         try {
-            byte[] data = Files.readAllBytes(getPathForKey(key));
-            ByteBuffer buffer = ByteBuffer.wrap(data);
-            buffer.getLong();
-
-            byte[] value = new byte[data.length - Long.BYTES];
-            buffer.get(value);
-            return value;
+            ValueWrapped valueWrapped = ValueWrapped.fromBytes(Files.readAllBytes(getPathForKey(key)));
+            if (valueWrapped.deleted) {
+                throw new NoSuchElementException();
+            }
+            return valueWrapped.value;
         } catch (NoSuchFileException e) {
             throw new NoSuchElementException();
         }
@@ -41,28 +39,33 @@ public class KVFilesDao implements KVDao {
 
     @Override
     public void upsert(@NotNull byte[] key, @NotNull byte[] value) throws IOException {
-        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES + value.length);
-        buffer.putLong(System.currentTimeMillis());
-        buffer.put(value);
-        Files.write(getPathForKey(key), buffer.array());
+        ValueWrapped valueWrapped = new ValueWrapped(value, false, System.currentTimeMillis());
+        Files.write(getPathForKey(key), valueWrapped.toBytes());
     }
 
     @Override
     public void remove(@NotNull byte[] key) throws IOException {
-        try {
-            Files.delete(getPathForKey(key));
-        } catch (NoSuchFileException e) {
-        }
+        ValueWrapped valueWrapped = new ValueWrapped(new byte[0], true, System.currentTimeMillis());
+        Files.write(getPathForKey(key), valueWrapped.toBytes());
     }
 
     @Override
     public long getUpdateTime(byte[] key) throws NoSuchElementException, IOException {
         try {
-            byte[] data = Files.readAllBytes(getPathForKey(key));
-            ByteBuffer buffer = ByteBuffer.wrap(data);
-            return buffer.getLong();
+            ValueWrapped valueWrapped = ValueWrapped.fromBytes(Files.readAllBytes(getPathForKey(key)));
+            return valueWrapped.timestamp;
         } catch (NoSuchFileException e) {
             throw new NoSuchElementException();
+        }
+    }
+
+    @Override
+    public boolean isDeleted(byte[] key) throws IOException {
+        try {
+            ValueWrapped valueWrapped = ValueWrapped.fromBytes(Files.readAllBytes(getPathForKey(key)));
+            return valueWrapped.deleted;
+        } catch (NoSuchFileException e) {
+            return false;
         }
     }
 
@@ -72,5 +75,34 @@ public class KVFilesDao implements KVDao {
 
     private Path getPathForKey(byte[] key) {
         return Paths.get(root, encoder.encodeToString(key));
+    }
+
+    private static class ValueWrapped {
+        private final byte[] value;
+        private final boolean deleted;
+        private final long timestamp;
+
+        public ValueWrapped(byte[] value, boolean deleted, long timestamp) {
+            this.value = value;
+            this.deleted = deleted;
+            this.timestamp = timestamp;
+        }
+
+        public static ValueWrapped fromBytes(byte[] data) {
+            ByteBuffer buffer = ByteBuffer.wrap(data);
+            long timestamp = buffer.getLong();
+            boolean deleted = buffer.get() > 0;
+            byte[] value = new byte[data.length - Long.BYTES - Byte.BYTES];
+            buffer.get(value);
+            return new ValueWrapped(value, deleted, timestamp);
+        }
+
+        public byte[] toBytes() {
+            ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES + Byte.BYTES + value.length);
+            buffer.putLong(timestamp);
+            buffer.put((byte) (deleted ? 1 : 0));
+            buffer.put(value);
+            return buffer.array();
+        }
     }
 }

@@ -80,7 +80,7 @@ public class Service extends HttpServer implements KVService {
 
     @Override
     public void handleDefault(Request request, HttpSession session) throws IOException {
-        session.sendError(Response.BAD_REQUEST, "");
+        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
     }
 
     @Override
