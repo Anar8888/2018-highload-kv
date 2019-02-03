@@ -3,6 +3,7 @@ package ru.mail.polis.anar8888;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -21,6 +22,7 @@ abstract public class AbstractRequestProcessor {
     protected final KVDao dao;
     protected final Set<String> replicas;
     protected final String myReplica;
+    private HashMap<String, HttpClient> clients;
 
     public Response process(QueryParams queryParams, Request request) {
         return request.getHeader(PROXIED_HEADER) == null
@@ -32,10 +34,16 @@ abstract public class AbstractRequestProcessor {
         this.dao = dao;
         this.replicas = replicas;
         this.myReplica = myReplica;
+        this.clients = new HashMap<>();
+        for (String host : replicas) {
+            if (!host.equals(myReplica)) {
+                this.clients.put(host, new HttpClient(new ConnectionString(host)));
+            }
+        }
     }
 
     public HttpClient getClientForReplica(String replica) {
-        return new HttpClient(new ConnectionString(replica));
+        return clients.get(replica);
     }
 
     public Response proxiedPut(HttpClient client, byte[] key, byte[] value) throws IOException {

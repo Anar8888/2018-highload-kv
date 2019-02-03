@@ -5,5 +5,10 @@
 !.gitignore
 !*.java
 
+# And not lua
+!*.lua
+# And not loadtest
+!LOADTEST.md
+
 # ...even if they are in subdirectories
 !*/

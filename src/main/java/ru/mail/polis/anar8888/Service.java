@@ -26,6 +26,8 @@ public class Service extends HttpServer implements KVService {
         acceptorConfig.port = port;
 
         HttpServerConfig config = new HttpServerConfig();
+        config.maxWorkers = 12;
+        config.minWorkers = 12;
         config.acceptors = new AcceptorConfig[]{acceptorConfig};
         return new Service(config, port, dao, topology);
     }
@@ -52,30 +54,34 @@ public class Service extends HttpServer implements KVService {
     @Path("/v0/entity")
     public void entity(Request request, HttpSession httpSession) throws IOException {
         Response response;
-        final QueryParams queryParams;
         try {
-            queryParams = QueryParams.fromRequest(request, topology.size());
-        } catch (IllegalArgumentException e) {
-            httpSession.sendError(Response.BAD_REQUEST, null);
-            return;
-        }
+            final QueryParams queryParams;
+            try {
+                queryParams = QueryParams.fromRequest(request, topology.size());
+            } catch (IllegalArgumentException e) {
+                httpSession.sendError(Response.BAD_REQUEST, null);
+                return;
+            }
 
-        switch (request.getMethod()) {
-            case Request.METHOD_GET:
-                response = getRequestProcessor.process(queryParams, request);
-                break;
-            case Request.METHOD_PUT:
-                response = putRequestProcessor.process(queryParams, request);
-                break;
-            case Request.METHOD_DELETE:
-                response = deleteRequestProcessor.process(queryParams, request);
-                break;
-            default:
-                response = new Response(Response.BAD_GATEWAY, Response.EMPTY);
-                break;
-        }
+            switch (request.getMethod()) {
+                case Request.METHOD_GET:
+                    response = getRequestProcessor.process(queryParams, request);
+                    break;
+                case Request.METHOD_PUT:
+                    response = putRequestProcessor.process(queryParams, request);
+                    break;
+                case Request.METHOD_DELETE:
+                    response = deleteRequestProcessor.process(queryParams, request);
+                    break;
+                default:
+                    response = new Response(Response.BAD_GATEWAY, Response.EMPTY);
+                    break;
+            }
 
-        httpSession.sendResponse(response);
+            httpSession.sendResponse(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
